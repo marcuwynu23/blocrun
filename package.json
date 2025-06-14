@@ -1,0 +1,25 @@
+{
+  "name": "blockrun",
+  "version": "1.0.0",
+  "description": "Run and manage grouped CLI processes using blocks defined in a BLOCFILE",
+  "main": "cli.js",
+  "bin": {
+    "blockrun": "./cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "process",
+    "automation",
+    "task",
+    "run",
+    "group",
+    "block"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {}
+}
