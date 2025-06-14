@@ -33,7 +33,19 @@ if (command === "run") {
     process.exit(0);
   }
 
-  const file = fs.readFileSync(path.resolve("Blocfile"), "utf8");
+  let file;
+  try {
+    const filePath = path.resolve("Blocfile");
+    if (!fs.existsSync(filePath)) {
+      console.error(`Blocfile not found.`);
+      process.exit(1);
+    }
+    file = fs.readFileSync(filePath, "utf8");
+  } catch (err) {
+    console.error("Failed to read Blocfile:", err.message || err);
+    process.exit(1);
+  }
+
   const regex = new RegExp(`${block}\\s*{([\\s\\S]*?)}`, "m");
   const match = file.match(regex);
 
