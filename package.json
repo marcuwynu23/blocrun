@@ -4,7 +4,7 @@
   "description": "Run and manage grouped CLI processes using blocks defined in a BLOCFILE",
   "main": "cli.js",
   "bin": {
-    "blocrun": "./cli.js"
+    "blocr": "./cli.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
