@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const {spawn, execSync} = require("child_process");
+const { spawn, execSync } = require("child_process");
 
 const BLOCK_FILE = ".blocks";
 
@@ -29,18 +29,16 @@ if (command === "run") {
   const blocks = readBlocks();
 
   if (blocks[block]) {
-    console.log(
-      `Block "${block}" is already running (PIDs: ${blocks[block].join(", ")})`
-    );
+    console.log(`Block "${block}" is already running (PIDs: ${blocks[block].join(", ")})`);
     process.exit(0);
   }
 
-  const file = fs.readFileSync(path.resolve("BLOCKFILE"), "utf8");
+  const file = fs.readFileSync(path.resolve("Blocfile"), "utf8");
   const regex = new RegExp(`${block}\\s*{([\\s\\S]*?)}`, "m");
   const match = file.match(regex);
 
   if (!match) {
-    console.error(`No "${block}" block found in BLOCKFILE`);
+    console.error(`No "${block}" block found in Blocfile`);
     process.exit(1);
   }
 
@@ -56,14 +54,7 @@ if (command === "run") {
     const symbol = line[0];
     let cmd = line.slice(1).trim();
 
-    const type =
-      symbol === "$"
-        ? "exit"
-        : symbol === "%"
-        ? "sustain"
-        : symbol === "@"
-        ? "cmdwrap"
-        : "unknown";
+    const type = symbol === "$" ? "exit" : symbol === "%" ? "sustain" : symbol === "@" ? "cmdwrap" : "unknown";
 
     if (type === "unknown") {
       console.warn(`Unknown symbol in line: ${line}`);
@@ -106,9 +97,7 @@ if (command === "run") {
     process.exit(1);
   }
 
-  console.log(
-    `Killing block "${block}" with ${blocks[block].length} processes...\n`
-  );
+  console.log(`Killing block "${block}" with ${blocks[block].length} processes...\n`);
 
   for (const pid of blocks[block]) {
     try {
@@ -131,9 +120,7 @@ if (command === "run") {
     console.log(`\nBlock "${block}" removed from .blocks`);
   } else {
     fs.unlinkSync(BLOCK_FILE);
-    console.log(
-      `\nBlock "${block}" removed. All blocks cleared. Deleted .blocks`
-    );
+    console.log(`\nBlock "${block}" removed. All blocks cleared. Deleted .blocks`);
   }
 } else {
   console.error(`Unknown command "${command}". Use "run" or "kill".`);
