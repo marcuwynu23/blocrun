@@ -41,9 +41,9 @@ build {
 
 | Symbol | Description                                | Tracked |
 | ------ | ------------------------------------------ | ------- |
-| `@`    | Sustained (GUI apps, servers, terminals)   | ✅ Yes  |
+| `@`    | Sustained (servers, terminal commands, etc)   | ✅ Yes  |
 | `%`    | Tracked but auto-closing jobs (e.g. build) | ✅ Yes  |
-| `$`    | One-off commands (not tracked)             | ❌ No   |
+| `$`    | One-off commands (not tracked e.g. gui app)             | ❌ No   |
 
 ---
 
