@@ -7,7 +7,6 @@ const { spawn, execSync } = require("child_process");
 const BLOCK_FILE = ".blocks";
 
 function readBlocks() {
-  if (!fs.existsSync(BLOCK_FILE)) return {};
   const raw = fs.readFileSync(BLOCK_FILE);
   return JSON.parse(raw.toString("utf8"));
 }
@@ -17,8 +16,13 @@ function writeBlocks(data) {
   fs.writeFileSync(BLOCK_FILE, buffer);
 }
 
+function isBlocFileNotExists(filePath) {
+  return !fs.existsSync(filePath);
+}
+
 const command = process.argv[2]; // run or kill
 const block = process.argv[3]; // block name
+const filePath = path.resolve("Blocfile");
 
 if (!command || !block) {
   console.error("Usage: node cli.js <run|kill> <block>");
@@ -26,6 +30,9 @@ if (!command || !block) {
 }
 
 if (command === "run") {
+  if (isBlocFileNotExists(BLOCK_FILE)) {
+    writeBlocks({});
+  }
   const blocks = readBlocks();
 
   if (blocks[block]) {
@@ -35,8 +42,7 @@ if (command === "run") {
 
   let file;
   try {
-    const filePath = path.resolve("Blocfile");
-    if (!fs.existsSync(filePath)) {
+    if (isBlocFileNotExists(filePath)) {
       console.error(`Blocfile not found.`);
       process.exit(1);
     }
@@ -102,6 +108,15 @@ if (command === "run") {
 
   // console.log(`\nBlock "${block}" running. PIDs saved to .blocks`);
 } else if (command === "kill") {
+  if (isBlocFileNotExists(BLOCK_FILE)) {
+    console.error(`.blocks not found. try to rerun block run <block>`);
+    process.exit(1);
+  }
+  if (isBlocFileNotExists(filePath)) {
+    console.error(`Blocfile not found.`);
+    process.exit(1);
+  }
+
   const blocks = readBlocks();
 
   if (!blocks[block]) {
