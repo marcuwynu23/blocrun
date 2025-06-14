@@ -29,7 +29,7 @@ if (command === "run") {
   const blocks = readBlocks();
 
   if (blocks[block]) {
-    console.log(`Block "${block}" is already running (PIDs: ${blocks[block].join(", ")})`);
+    console.error(`Block "${block}" is already running (PIDs: ${blocks[block].join(", ")})`);
     process.exit(0);
   }
 
@@ -47,7 +47,7 @@ if (command === "run") {
     .map((line) => line.trim())
     .filter((line) => line && /[$%@]/.test(line[0])); // Only accept $, %, @
 
-  console.log(`Running ${lines.length} commands from "${block}" block...\n`);
+  // console.log(`Running ${lines.length} commands from "${block}" block...\n`);
   const pids = [];
 
   for (const line of lines) {
@@ -79,7 +79,7 @@ if (command === "run") {
       continue;
     }
 
-    console.log(`"${cmd}" started with PID: ${child.pid} (${type})`);
+    // console.log(`"${cmd}" started with PID: ${child.pid} (${type})`);
     if (type !== "exit") {
       pids.push(child.pid);
     }
@@ -88,7 +88,7 @@ if (command === "run") {
   blocks[block] = pids;
   writeBlocks(blocks);
 
-  console.log(`\nBlock "${block}" running. PIDs saved to .blocks`);
+  // console.log(`\nBlock "${block}" running. PIDs saved to .blocks`);
 } else if (command === "kill") {
   const blocks = readBlocks();
 
@@ -97,7 +97,7 @@ if (command === "run") {
     process.exit(1);
   }
 
-  console.log(`Killing block "${block}" with ${blocks[block].length} processes...\n`);
+  // console.log(`Killing block "${block}" with ${blocks[block].length} processes...\n`);
 
   for (const pid of blocks[block]) {
     try {
@@ -106,7 +106,7 @@ if (command === "run") {
       } else {
         process.kill(-pid, "SIGTERM");
       }
-      console.log(`Killed PID: ${pid}`);
+      // console.log(`Killed PID: ${pid}`);
     } catch (err) {
       console.error(`Failed to kill PID ${pid}:`, err.message);
     }
@@ -117,10 +117,10 @@ if (command === "run") {
 
   if (hasOthers) {
     writeBlocks(blocks);
-    console.log(`\nBlock "${block}" removed from .blocks`);
+    // console.log(`\nBlock "${block}" removed from .blocks`);
   } else {
     fs.unlinkSync(BLOCK_FILE);
-    console.log(`\nBlock "${block}" removed. All blocks cleared. Deleted .blocks`);
+    // console.log(`\nBlock "${block}" removed. All blocks cleared. Deleted .blocks`);
   }
 } else {
   console.error(`Unknown command "${command}". Use "run" or "kill".`);
