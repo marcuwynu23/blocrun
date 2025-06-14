@@ -1,4 +1,4 @@
-# blockrun
+# blocrun
 
 A simple CLI tool to define and control groups of commands using block syntax in a `BLOCFILE`. It lets you start and stop named command groups with automatic PID tracking and process control.
 
@@ -14,7 +14,7 @@ A simple CLI tool to define and control groups of commands using block syntax in
 ## 📦 Installation
 
 ```bash
-npm install -g blockrun
+npm install -g blocrun
 ```
 
 ---
@@ -39,11 +39,11 @@ build {
 
 ## 🔣 Prefix Symbols
 
-| Symbol | Description                               | Tracked |
-|--------|-------------------------------------------|---------|
-| `@`    | Sustained (GUI apps, servers, terminals)  | ✅ Yes  |
+| Symbol | Description                                | Tracked |
+| ------ | ------------------------------------------ | ------- |
+| `@`    | Sustained (GUI apps, servers, terminals)   | ✅ Yes  |
 | `%`    | Tracked but auto-closing jobs (e.g. build) | ✅ Yes  |
-| `$`    | One-off commands (not tracked)            | ❌ No   |
+| `$`    | One-off commands (not tracked)             | ❌ No   |
 
 ---
 
@@ -52,13 +52,13 @@ build {
 ### Run a block
 
 ```bash
-blockrun run <block-name>
+blocrun run <block-name>
 ```
 
 Example:
 
 ```bash
-blockrun run dev
+blocrun run dev
 ```
 
 If the block is already running, it will not run again.
@@ -68,10 +68,11 @@ If the block is already running, it will not run again.
 ### Kill a block
 
 ```bash
-blockrun kill <block-name>
+blocrun kill <block-name>
 ```
 
 This command:
+
 - Terminates all tracked processes for the block
 - Cleans up the `.blocks` PID tracking file
 
@@ -108,7 +109,7 @@ build {
 
 ---
 
-## 🧠 Why use `blockrun`?
+## 🧠 Why use `blocrun`?
 
 - Simpler than shell scripts
 - Safer than PM2 for dev use
