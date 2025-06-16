@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { spawn, execSync } = require("child_process");
+const {spawn, execSync} = require("child_process");
 
 const BLOCK_FILE = ".blocks";
 
@@ -33,12 +33,8 @@ if (command === "run") {
   if (isBlocFileNotExists(BLOCK_FILE)) {
     writeBlocks({});
   }
-  const blocks = readBlocks();
 
-  if (blocks[block]) {
-    console.error(`Block "${block}" is already running (PIDs: ${blocks[block].join(", ")})`);
-    process.exit(0);
-  }
+  const blocks = readBlocks();
 
   let file;
   try {
@@ -52,102 +48,141 @@ if (command === "run") {
     process.exit(1);
   }
 
-  const regex = new RegExp(`${block}\\s*{([\\s\\S]*?)}`, "m");
-  const match = file.match(regex);
+  // Match all blocks if 'all' is used
+  const blockNames =
+    block === "all"
+      ? [...file.matchAll(/^(\w+)\s*{[\s\S]*?^}/gm)].map((m) => m[1])
+      : [block];
 
-  if (!match) {
-    console.error(`No "${block}" block found in Blocfile`);
-    process.exit(1);
-  }
+  const totalBlocksToRun = [];
 
-  const lines = match[1]
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && /[$%@]/.test(line[0])); // Only accept $, %, @
-
-  // console.log(`Running ${lines.length} commands from "${block}" block...\n`);
-  const pids = [];
-
-  for (const line of lines) {
-    const symbol = line[0];
-    let cmd = line.slice(1).trim();
-
-    const type = symbol === "$" ? "exit" : symbol === "%" ? "sustain" : symbol === "@" ? "cmdwrap" : "unknown";
-
-    if (type === "unknown") {
-      console.warn(`Unknown symbol in line: ${line}`);
+  for (const blkName of blockNames) {
+    if (blocks[blkName]) {
+      console.error(
+        `Block "${blkName}" is already running (PIDs: ${blocks[blkName].join(
+          ", "
+        )})`
+      );
       continue;
     }
 
-    if (type === "cmdwrap") {
-      cmd = `cmd /k "${cmd}"`;
-    }
-
-    const child = spawn(cmd, {
-      cwd: process.cwd(),
-      shell: true,
-      detached: true,
-      stdio: type === "exit" || type === "cmdwrap" ? "inherit" : "ignore",
-    });
-
-    if (type !== "exit") child.unref();
-
-    if (!child.pid) {
-      console.error(`Failed to start "${cmd}"`);
+    const regex = new RegExp(`${blkName}\\s*{([\\s\\S]*?)}`, "m");
+    const match = file.match(regex);
+    if (!match) {
+      console.error(`No "${blkName}" block found in Blocfile`);
       continue;
     }
 
-    // console.log(`"${cmd}" started with PID: ${child.pid} (${type})`);
-    if (type !== "exit") {
-      pids.push(child.pid);
+    const lines = match[1]
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && /[$%@]/.test(line[0]));
+
+    const pids = [];
+
+    for (const line of lines) {
+      const symbol = line[0];
+      let cmd = line.slice(1).trim();
+
+      const type =
+        symbol === "$"
+          ? "exit"
+          : symbol === "%"
+          ? "sustain"
+          : symbol === "@"
+          ? "cmdwrap"
+          : "unknown";
+
+      if (type === "unknown") {
+        console.warn(`Unknown symbol in line: ${line}`);
+        continue;
+      }
+
+      if (type === "cmdwrap") {
+        cmd = `cmd /k "${cmd}"`;
+      }
+
+      const child = spawn(cmd, {
+        cwd: process.cwd(),
+        shell: true,
+        detached: true,
+        stdio: type === "exit" || type === "cmdwrap" ? "inherit" : "ignore",
+      });
+
+      if (type !== "exit") child.unref();
+
+      if (!child.pid) {
+        console.error(`Failed to start "${cmd}"`);
+        continue;
+      }
+
+      if (type !== "exit") {
+        pids.push(child.pid);
+      }
+    }
+
+    if (pids.length) {
+      blocks[blkName] = pids;
+      totalBlocksToRun.push(blkName);
     }
   }
 
-  blocks[block] = pids;
-  writeBlocks(blocks);
+  if (totalBlocksToRun.length) {
+    writeBlocks(blocks);
+  }
 
-  // console.log(`\nBlock "${block}" running. PIDs saved to .blocks`);
+  if (block === "all") {
+    if (totalBlocksToRun.length) {
+      console.log(`Blocks [${totalBlocksToRun.join(", ")}] running.`);
+    } else {
+      console.log(`No blocks were started.`);
+    }
+  }
 } else if (command === "kill") {
   if (isBlocFileNotExists(BLOCK_FILE)) {
-    console.error(`.blocks not found. try to rerun block run <block>`);
-    process.exit(1);
-  }
-  if (isBlocFileNotExists(filePath)) {
-    console.error(`Blocfile not found.`);
+    console.error(`.blocks not found. Try to rerun "blocrun run <block>"`);
     process.exit(1);
   }
 
   const blocks = readBlocks();
 
-  if (!blocks[block]) {
-    console.error(`Block "${block}" not found in .blocks`);
-    process.exit(1);
+  const blocksToKill = block === "all" ? Object.keys(blocks) : [block];
+
+  if (blocksToKill.length === 0) {
+    console.log("No blocks are currently running.");
+    process.exit(0);
   }
 
-  // console.log(`Killing block "${block}" with ${blocks[block].length} processes...\n`);
-
-  for (const pid of blocks[block]) {
-    try {
-      if (process.platform === "win32") {
-        execSync(`taskkill /PID ${pid} /T /F`);
-      } else {
-        process.kill(-pid, "SIGTERM");
-      }
-      // console.log(`Killed PID: ${pid}`);
-    } catch (err) {
-      console.error(`Failed to kill PID ${pid}:`, err.message);
+  for (const blkName of blocksToKill) {
+    if (!blocks[blkName]) {
+      console.warn(`Block "${blkName}" not found in .blocks`);
+      continue;
     }
+
+    for (const pid of blocks[blkName]) {
+      try {
+        if (process.platform === "win32") {
+          execSync(`taskkill /PID ${pid} /T /F`);
+        } else {
+          process.kill(-pid, "SIGTERM");
+        }
+        // console.log(`Killed PID: ${pid}`);
+      } catch (err) {
+        console.error(`Failed to kill PID ${pid}:`, err.message);
+      }
+    }
+
+    delete blocks[blkName];
+    console.log(`✓ Block "${blkName}" terminated.`);
   }
 
-  delete blocks[block];
   const hasOthers = Object.keys(blocks).length > 0;
 
   if (hasOthers) {
     writeBlocks(blocks);
-    // console.log(`\nBlock "${block}" removed from .blocks`);
   } else {
     fs.unlinkSync(BLOCK_FILE);
-    // console.log(`\nBlock "${block}" removed. All blocks cleared. Deleted .blocks`);
+    console.log(`✓ All blocks cleared. Deleted .blocks`);
   }
 } else {
   console.error(`Unknown command "${command}". Use "run" or "kill".`);
