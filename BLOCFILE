@@ -4,3 +4,10 @@ dev {
     % py -m http.server 8000
 }
 
+test {
+    @ echo test....
+}
+
+api {
+    @ ls -al
+}
