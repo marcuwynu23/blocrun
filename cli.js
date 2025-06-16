@@ -30,6 +30,7 @@ Usage:
   blocr <command> [block]
 
 Commands:
+  init              Create a sample Blocfile with common blocks and comments
   run <block>       Run the specified block from Blocfile
   run all           Run all blocks defined in Blocfile
   kill <block>      Kill the processes started by the given block
@@ -37,9 +38,12 @@ Commands:
   list              List all currently running blocks and their PIDs
   status <block>    Check if the processes in a specific block are still running
   status all        Check the status of all running blocks
+  clean             Delete the .blocks file and clear all running process records
+  help              Show this help message
+  version     Show the current version of the CLI
 
 Blocfile Syntax:
-  Each block should be defined like this:
+  Each block is a group of shell commands, like this:
 
     dev {
       @ echo Stay open in terminal (Windows only)
@@ -49,20 +53,22 @@ Blocfile Syntax:
     }
 
   Symbols:
-    @  → Runs in Windows CMD and stays open (cmd /k)
-    %  → Starts a background/sustained process
-    $  → Executes and waits (like a one-off script)
+    @  → Runs in Windows CMD and stays open (useful for manual inspection)
+    %  → Starts a persistent/background process (detached)
+    $  → Executes a single command and waits until it finishes
 
 Examples:
+  blocr init
   blocr run dev
   blocr run all
-  blocr kill dev
-  blocr list
+  blocr kill api
   blocr status dev
+  blocr clean
+  blocr version
 
 Notes:
-  - All running process IDs are saved to .blocks
-  - Use 'kill' to terminate background tasks
+  - All persistent process IDs are saved to .blocks
+  - 'kill' removes them safely; 'clean' clears the file manually
 `);
 }
 
@@ -73,6 +79,84 @@ if (!command) {
 if (command === "help") {
   help();
   process.exit(0);
+} else if (command === "version") {
+  const {version} = require("./package.json");
+  console.log(`blocrun v${version}`);
+  process.exit(0);
+} else if (command === "init") {
+  if (fs.existsSync(filePath)) {
+    console.log("Blocfile already exists.");
+    process.exit(0);
+  }
+
+  const example = `
+// Blocfile - Define named command groups (blocks) for development workflows.
+// Each block can contain commands that run once ($), persist in the background (%), or open terminals (@).
+
+// =======================
+// Dev Environment Block
+// =======================
+dev {
+  // Open a terminal window (Windows only - stays open)
+  @ echo Starting Development Environment...
+
+  // Start frontend development server (e.g., React/Vite/Next.js)
+  % npm run dev
+
+  // Run a local mock API server (optional)
+  % json-server --watch db.json --port 4000
+
+  // Show message when setup is complete
+  $ echo Development environment initialized.
+}
+
+// =======================
+// API Server Block
+// =======================
+api {
+  // Start backend server
+  % node server.js
+
+  // Optional one-time message
+  $ echo API server is up and running.
+}
+
+// =======================
+// Build Scripts
+// =======================
+build {
+  // Clean build folder
+  $ rm -rf dist
+
+  // Run production build
+  $ npm run build
+
+  // Notify when done
+  $ echo Build completed successfully.
+}
+
+// =======================
+// Documentation Block
+// =======================
+docs {
+  // Launch documentation generator
+  % npm run docs:dev
+
+  // Optional local viewer
+  $ echo Docs preview running on http://localhost:3000
+}
+`;
+
+  fs.writeFileSync(filePath, example, "utf8");
+  console.log("✓ Blocfile created with sample blocks.");
+} else if (command === "clean") {
+  if (!fs.existsSync(BLOCK_FILE)) {
+    console.log(".blocks file not found. Nothing to clean.");
+    process.exit(0);
+  }
+
+  fs.unlinkSync(BLOCK_FILE);
+  console.log("✓ .blocks file deleted. All tracked blocks cleared.");
 } else if (command === "run") {
   if (isBlocFileNotExists(BLOCK_FILE)) {
     writeBlocks({});
