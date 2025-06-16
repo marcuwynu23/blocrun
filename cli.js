@@ -24,12 +24,56 @@ const command = process.argv[2]; // run or kill
 const block = process.argv[3]; // block name
 const filePath = path.resolve("Blocfile");
 
-if (!command || !block) {
-  console.error("Usage: node cli.js <run|kill> <block>");
-  process.exit(1);
+function help() {
+  console.log(`
+Usage:
+  blocr <command> [block]
+
+Commands:
+  run <block>       Run the specified block from Blocfile
+  run all           Run all blocks defined in Blocfile
+  kill <block>      Kill the processes started by the given block
+  kill all          Kill all running blocks
+  list              List all currently running blocks and their PIDs
+  status <block>    Check if the processes in a specific block are still running
+  status all        Check the status of all running blocks
+
+Blocfile Syntax:
+  Each block should be defined like this:
+
+    dev {
+      @ echo Stay open in terminal (Windows only)
+      % serve -p 3000 .
+      % python3 -m http.server 8000
+      $ echo One-time command
+    }
+
+  Symbols:
+    @  → Runs in Windows CMD and stays open (cmd /k)
+    %  → Starts a background/sustained process
+    $  → Executes and waits (like a one-off script)
+
+Examples:
+  blocr run dev
+  blocr run all
+  blocr kill dev
+  blocr list
+  blocr status dev
+
+Notes:
+  - All running process IDs are saved to .blocks
+  - Use 'kill' to terminate background tasks
+`);
 }
 
-if (command === "run") {
+if (!command) {
+  console.error(`Run "blocr help" to see available commands.`);
+  process.exit(1);
+}
+if (command === "help") {
+  help();
+  process.exit(0);
+} else if (command === "run") {
   if (isBlocFileNotExists(BLOCK_FILE)) {
     writeBlocks({});
   }
@@ -184,7 +228,66 @@ if (command === "run") {
     fs.unlinkSync(BLOCK_FILE);
     console.log(`✓ All blocks cleared. Deleted .blocks`);
   }
+} else if (command === "list") {
+  if (isBlocFileNotExists(BLOCK_FILE)) {
+    console.log("No blocks are currently running.");
+    process.exit(0);
+  }
+
+  const blocks = readBlocks();
+
+  if (Object.keys(blocks).length === 0) {
+    console.log("No blocks are currently running.");
+    process.exit(0);
+  }
+
+  console.log("Running blocks:");
+  for (const [blkName, pids] of Object.entries(blocks)) {
+    console.log(`- ${blkName}: ${pids.join(", ")}`);
+  }
+} else if (command === "status") {
+  if (isBlocFileNotExists(BLOCK_FILE)) {
+    console.log("No blocks are currently running.");
+    process.exit(0);
+  }
+
+  const blocks = readBlocks();
+  const blocksToCheck = block === "all" ? Object.keys(blocks) : [block];
+
+  if (blocksToCheck.length === 0) {
+    console.log("No blocks found.");
+    process.exit(0);
+  }
+
+  for (const blkName of blocksToCheck) {
+    const pids = blocks[blkName];
+    if (!pids) {
+      console.log(`✗ Block "${blkName}" not found in .blocks`);
+      continue;
+    }
+
+    const stillRunning = pids.filter((pid) => {
+      try {
+        process.kill(pid, 0); // Check signal only
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    if (stillRunning.length === pids.length) {
+      console.log(`✓ Block "${blkName}" is running (${pids.join(", ")})`);
+    } else if (stillRunning.length > 0) {
+      console.log(
+        `~ Block "${blkName}" is partially running (${stillRunning.join(", ")})`
+      );
+    } else {
+      console.log(`✗ Block "${blkName}" is not running`);
+    }
+  }
 } else {
-  console.error(`Unknown command "${command}". Use "run" or "kill".`);
+  console.error(
+    `Unknown command "${command}". Run "blocr help" to see available commands.`
+  );
   process.exit(1);
 }
