@@ -5,373 +5,237 @@ const path = require("path");
 const {spawn, execSync} = require("child_process");
 
 const BLOCK_FILE = ".blocks";
+const BLOCFILE_PATH = path.resolve("Blocfile");
+const command = process.argv[2];
+const block = process.argv[3];
 
-function readBlocks() {
-  const raw = fs.readFileSync(BLOCK_FILE);
-  return JSON.parse(raw.toString("utf8"));
-}
+const fileExists = (filePath) => fs.existsSync(filePath);
+const readFileUtf8 = (filePath) => fs.readFileSync(filePath, "utf8");
 
-function writeBlocks(data) {
-  const buffer = Buffer.from(JSON.stringify(data, null, 2), "utf8");
-  fs.writeFileSync(BLOCK_FILE, buffer);
-}
+const readBlocks = () => {
+  try {
+    return JSON.parse(readFileUtf8(BLOCK_FILE));
+  } catch {
+    return {};
+  }
+};
 
-function isBlocFileNotExists(filePath) {
-  return !fs.existsSync(filePath);
-}
+const writeBlocks = (data) => {
+  try {
+    fs.writeFileSync(BLOCK_FILE, JSON.stringify(data, null, 2), "utf8");
+  } catch (e) {
+    console.error("Failed to write .blocks:", e.message);
+  }
+};
 
-const command = process.argv[2]; // run or kill
-const block = process.argv[3]; // block name
-const filePath = path.resolve("Blocfile");
-
-function help() {
+const help = () =>
   console.log(`
 Usage:
   blocr <command> [block]
 
 Commands:
-  init              Create a sample Blocfile with common blocks and comments
-  run <block>       Run the specified block from Blocfile
-  run all           Run all blocks defined in Blocfile
-  kill <block>      Kill the processes started by the given block
-  kill all          Kill all running blocks
-  list              List all currently running blocks and their PIDs
-  status <block>    Check if the processes in a specific block are still running
-  status all        Check the status of all running blocks
-  clean             Delete the .blocks file and clear all running process records
-  help              Show this help message
-  version     Show the current version of the CLI
+  init              Create a sample Blocfile
+  run <block|all>   Run a block or all blocks
+  kill <block|all>  Kill block or all running blocks
+  list              Show all currently running blocks
+  status <block|all> Show status of blocks
+  clean             Delete the .blocks file
+  help              Show this help
+  version           Show CLI version
 
 Blocfile Syntax:
-  Each block is a group of shell commands, like this:
-
-    dev {
-      @ echo Stay open in terminal (Windows only)
-      % serve -p 3000 .
-      % python3 -m http.server 8000
-      $ echo One-time command
-    }
-
-  Symbols:
-    @  → Runs in Windows CMD and stays open (useful for manual inspection)
-    %  → Starts a persistent/background process (detached)
-    $  → Executes a single command and waits until it finishes
-
-Examples:
-  blocr init
-  blocr run dev
-  blocr run all
-  blocr kill api
-  blocr status dev
-  blocr clean
-  blocr version
-
-Notes:
-  - All persistent process IDs are saved to .blocks
-  - 'kill' removes them safely; 'clean' clears the file manually
-`);
-}
-
-if (!command) {
-  console.error(`Run "blocr help" to see available commands.`);
-  process.exit(1);
-}
-if (command === "help") {
-  help();
-  process.exit(0);
-} else if (command === "version") {
-  const {version} = require("./package.json");
-  console.log(`blocrun v${version}`);
-  process.exit(0);
-} else if (command === "init") {
-  if (fs.existsSync(filePath)) {
-    console.log("Blocfile already exists.");
-    process.exit(0);
+  blockName {
+    $ echo one-time
+    % npm run persist
+    @ echo CMD stay open (Windows only)
   }
+`);
 
-  const example = `
-// Blocfile - Define named command groups (blocks) for development workflows.
-// Each block can contain commands that run once ($), persist in the background (%), or open terminals (@).
-
-// =======================
-// Dev Environment Block
-// =======================
+const handleInit = () => {
+  if (fileExists(BLOCFILE_PATH)) return console.log("Blocfile already exists.");
+  const template = `
 dev {
-  // Open a terminal window (Windows only - stays open)
   @ echo Starting Development Environment...
-
-  // Start frontend development server (e.g., React/Vite/Next.js)
   % npm run dev
-
-  // Run a local mock API server (optional)
   % json-server --watch db.json --port 4000
-
-  // Show message when setup is complete
   $ echo Development environment initialized.
 }
 
-// =======================
-// API Server Block
-// =======================
 api {
-  // Start backend server
   % node server.js
-
-  // Optional one-time message
   $ echo API server is up and running.
 }
 
-// =======================
-// Build Scripts
-// =======================
 build {
-  // Clean build folder
   $ rm -rf dist
-
-  // Run production build
   $ npm run build
-
-  // Notify when done
   $ echo Build completed successfully.
 }
 
-// =======================
-// Documentation Block
-// =======================
 docs {
-  // Launch documentation generator
   % npm run docs:dev
-
-  // Optional local viewer
   $ echo Docs preview running on http://localhost:3000
 }
 `;
+  fs.writeFileSync(BLOCFILE_PATH, template, "utf8");
+  console.log("✓ Blocfile created.");
+};
 
-  fs.writeFileSync(filePath, example, "utf8");
-  console.log("✓ Blocfile created with sample blocks.");
-} else if (command === "clean") {
-  if (!fs.existsSync(BLOCK_FILE)) {
-    console.log(".blocks file not found. Nothing to clean.");
-    process.exit(0);
-  }
-
+const handleClean = () => {
+  if (!fileExists(BLOCK_FILE)) return console.log("Nothing to clean.");
   fs.unlinkSync(BLOCK_FILE);
-  console.log("✓ .blocks file deleted. All tracked blocks cleared.");
-} else if (command === "run") {
-  if (isBlocFileNotExists(BLOCK_FILE)) {
-    writeBlocks({});
-  }
+  console.log("✓ .blocks file deleted.");
+};
 
+const handleRun = () => {
+  if (!fileExists(BLOCFILE_PATH)) return console.error("Blocfile not found.");
+  if (!fileExists(BLOCK_FILE)) writeBlocks({});
+
+  const fileContent = readFileUtf8(BLOCFILE_PATH);
   const blocks = readBlocks();
-
-  let file;
-  try {
-    if (isBlocFileNotExists(filePath)) {
-      console.error(`Blocfile not found.`);
-      process.exit(1);
-    }
-    file = fs.readFileSync(filePath, "utf8");
-  } catch (err) {
-    console.error("Failed to read Blocfile:", err.message || err);
-    process.exit(1);
-  }
-
-  // Match all blocks if 'all' is used
   const blockNames =
     block === "all"
-      ? [...file.matchAll(/^(\w+)\s*{[\s\S]*?^}/gm)].map((m) => m[1])
+      ? [...fileContent.matchAll(/^([a-zA-Z0-9_]+)\s*{[\s\S]*?^}/gm)].map(
+          (m) => m[1]
+        )
       : [block];
 
-  const totalBlocksToRun = [];
+  const started = [];
 
-  for (const blkName of blockNames) {
+  blockNames.forEach((blkName) => {
     if (blocks[blkName]) {
-      console.error(
-        `Block "${blkName}" is already running (PIDs: ${blocks[blkName].join(
-          ", "
-        )})`
-      );
-      continue;
+      console.error(`Block \"${blkName}\" already running.`);
+      return;
     }
 
-    const regex = new RegExp(`${blkName}\\s*{([\\s\\S]*?)}`, "m");
-    const match = file.match(regex);
-    if (!match) {
-      console.error(`No "${blkName}" block found in Blocfile`);
-      continue;
-    }
+    const match = fileContent.match(
+      new RegExp(`${blkName}\\s*{([\\s\\S]*?)}`, "m")
+    );
+    if (!match) return console.error(`No block \"${blkName}\" found.`);
 
     const lines = match[1]
       .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line && /[$%@]/.test(line[0]));
+      .map((l) => l.trim())
+      .filter((l) => l && /[$%@]/.test(l[0]));
 
     const pids = [];
 
     for (const line of lines) {
-      const symbol = line[0];
+      const [symbol, ...rest] = line.trim();
       let cmd = line.slice(1).trim();
-
       const type =
         symbol === "$"
           ? "exit"
           : symbol === "%"
           ? "sustain"
           : symbol === "@"
-          ? "cmdwrap"
-          : "unknown";
+          ? "cmd"
+          : null;
+      if (!type) continue;
+      if (type === "cmd") cmd = `cmd /k \"${cmd}\"`;
 
-      if (type === "unknown") {
-        console.warn(`Unknown symbol in line: ${line}`);
-        continue;
-      }
-
-      if (type === "cmdwrap") {
-        cmd = `cmd /k "${cmd}"`;
-      }
-
-      const child = spawn(cmd, {
+      const proc = spawn(cmd, {
         cwd: process.cwd(),
         shell: true,
         detached: true,
-        stdio: type === "exit" || type === "cmdwrap" ? "inherit" : "ignore",
+        stdio: ["ignore", "ignore", "ignore"],
       });
 
-      if (type !== "exit") child.unref();
-
-      if (!child.pid) {
-        console.error(`Failed to start "${cmd}"`);
-        continue;
-      }
-
-      if (type !== "exit") {
-        pids.push(child.pid);
-      }
+      if (type !== "exit") proc.unref();
+      if (proc.pid && type !== "exit") pids.push(proc.pid);
     }
 
     if (pids.length) {
       blocks[blkName] = pids;
-      totalBlocksToRun.push(blkName);
+      started.push(blkName);
     }
-  }
+  });
 
-  if (totalBlocksToRun.length) {
-    writeBlocks(blocks);
-  }
+  if (started.length) writeBlocks(blocks);
+  if (block === "all") console.log(`Started: [${started.join(", ")}].`);
+};
 
-  if (block === "all") {
-    if (totalBlocksToRun.length) {
-      console.log(`Blocks [${totalBlocksToRun.join(", ")}] running.`);
-    } else {
-      console.log(`No blocks were started.`);
-    }
-  }
-} else if (command === "kill") {
-  if (isBlocFileNotExists(BLOCK_FILE)) {
-    console.error(`.blocks not found. Try to rerun "blocrun run <block>"`);
-    process.exit(1);
-  }
-
+const handleKill = () => {
+  if (!fileExists(BLOCK_FILE)) return console.error("No running blocks.");
   const blocks = readBlocks();
+  const toKill = block === "all" ? Object.keys(blocks) : [block];
 
-  const blocksToKill = block === "all" ? Object.keys(blocks) : [block];
-
-  if (blocksToKill.length === 0) {
-    console.log("No blocks are currently running.");
-    process.exit(0);
-  }
-
-  for (const blkName of blocksToKill) {
-    if (!blocks[blkName]) {
-      console.warn(`Block "${blkName}" not found in .blocks`);
-      continue;
-    }
-
-    for (const pid of blocks[blkName]) {
-      try {
-        if (process.platform === "win32") {
-          execSync(`taskkill /PID ${pid} /T /F`);
-        } else {
-          process.kill(-pid, "SIGTERM");
-        }
-        // console.log(`Killed PID: ${pid}`);
-      } catch (err) {
-        console.error(`Failed to kill PID ${pid}:`, err.message);
-      }
-    }
-
-    delete blocks[blkName];
-    console.log(`✓ Block "${blkName}" terminated.`);
-  }
-
-  const hasOthers = Object.keys(blocks).length > 0;
-
-  if (hasOthers) {
-    writeBlocks(blocks);
-  } else {
-    fs.unlinkSync(BLOCK_FILE);
-    console.log(`✓ All blocks cleared. Deleted .blocks`);
-  }
-} else if (command === "list") {
-  if (isBlocFileNotExists(BLOCK_FILE)) {
-    console.log("No blocks are currently running.");
-    process.exit(0);
-  }
-
-  const blocks = readBlocks();
-
-  if (Object.keys(blocks).length === 0) {
-    console.log("No blocks are currently running.");
-    process.exit(0);
-  }
-
-  console.log("Running blocks:");
-  for (const [blkName, pids] of Object.entries(blocks)) {
-    console.log(`- ${blkName}: ${pids.join(", ")}`);
-  }
-} else if (command === "status") {
-  if (isBlocFileNotExists(BLOCK_FILE)) {
-    console.log("No blocks are currently running.");
-    process.exit(0);
-  }
-
-  const blocks = readBlocks();
-  const blocksToCheck = block === "all" ? Object.keys(blocks) : [block];
-
-  if (blocksToCheck.length === 0) {
-    console.log("No blocks found.");
-    process.exit(0);
-  }
-
-  for (const blkName of blocksToCheck) {
+  toKill.forEach((blkName) => {
     const pids = blocks[blkName];
-    if (!pids) {
-      console.log(`✗ Block "${blkName}" not found in .blocks`);
-      continue;
-    }
-
-    const stillRunning = pids.filter((pid) => {
+    if (!pids) return console.warn(`Block \"${blkName}\" not found.`);
+    pids.forEach((pid) => {
       try {
-        process.kill(pid, 0); // Check signal only
+        process.platform === "win32"
+          ? execSync(`taskkill /PID ${pid} /T /F`)
+          : process.kill(-pid, "SIGTERM");
+      } catch (e) {
+        console.error(`Failed to kill PID ${pid}:`, e.message);
+      }
+    });
+    delete blocks[blkName];
+    console.log(`✓ Block \"${blkName}\" terminated.`);
+  });
+
+  Object.keys(blocks).length ? writeBlocks(blocks) : fs.unlinkSync(BLOCK_FILE);
+};
+
+const handleList = () => {
+  if (!fileExists(BLOCK_FILE)) return console.log("No running blocks.");
+  const blocks = readBlocks();
+  console.log("Running blocks:");
+  Object.entries(blocks).forEach(([name, pids]) => {
+    console.log(`- ${name}: ${pids.join(", ")}`);
+  });
+};
+
+const handleStatus = () => {
+  if (!fileExists(BLOCK_FILE)) return console.log("No blocks are running.");
+  const blocks = readBlocks();
+  const toCheck = block === "all" ? Object.keys(blocks) : [block];
+
+  toCheck.forEach((blkName) => {
+    const pids = blocks[blkName];
+    if (!pids) return console.log(`✗ Block \"${blkName}\" not found.`);
+    const running = pids.filter((pid) => {
+      try {
+        process.kill(pid, 0);
         return true;
       } catch {
         return false;
       }
     });
+    if (running.length === pids.length) console.log(`✓ ${blkName} is running`);
+    else if (running.length > 0) console.log(`~ ${blkName} partially running`);
+    else console.log(`✗ ${blkName} not running`);
+  });
+};
 
-    if (stillRunning.length === pids.length) {
-      console.log(`✓ Block "${blkName}" is running (${pids.join(", ")})`);
-    } else if (stillRunning.length > 0) {
-      console.log(
-        `~ Block "${blkName}" is partially running (${stillRunning.join(", ")})`
-      );
-    } else {
-      console.log(`✗ Block "${blkName}" is not running`);
-    }
-  }
-} else {
-  console.error(
-    `Unknown command "${command}". Run "blocr help" to see available commands.`
-  );
-  process.exit(1);
+switch (command) {
+  case "help":
+    help();
+    break;
+  case "version":
+    console.log(`blocrun v${require("./package.json").version}`);
+    break;
+  case "init":
+    handleInit();
+    break;
+  case "clean":
+    handleClean();
+    break;
+  case "run":
+    handleRun();
+    break;
+  case "kill":
+    handleKill();
+    break;
+  case "list":
+    handleList();
+    break;
+  case "status":
+    handleStatus();
+    break;
+  default:
+    console.error(`Unknown command \"${command}\". Try \"blocr help\".`);
+    process.exit(1);
 }
