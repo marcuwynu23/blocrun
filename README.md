@@ -128,4 +128,4 @@ build {
 
 ## 🧩 License
 
-MIT
+[License here.](./LICENSE)
