@@ -1,5 +1,13 @@
-# blocrun
+<div align="center">
+  <h1> blocrun </h1>
+</div>
 
+<p align="center">
+  <img src="https://img.shields.io/github/stars/marcuwynu23/blocrun.svg" alt="Stars Badge"/>
+  <img src="https://img.shields.io/github/forks/marcuwynu23/blocrun.svg" alt="Forks Badge"/>
+  <img src="https://img.shields.io/github/issues/marcuwynu23/blocrun.svg" alt="Issues Badge"/>
+  <img src="https://img.shields.io/github/license/marcuwynu23/blocrun.svg" alt="License Badge"/>
+</p>
 A simple CLI tool to define and control groups of commands using block syntax in a `BLOCFILE`. It lets you start and stop named command groups with automatic PID tracking and process control.
 
 ## ✨ Features
@@ -39,11 +47,11 @@ build {
 
 ## 🔣 Prefix Symbols
 
-| Symbol | Description                                | Tracked |
-| ------ | ------------------------------------------ | ------- |
-| `@`    | Sustained (servers, terminal commands, etc)   | ✅ Yes  |
-| `%`    | Tracked but auto-closing jobs (e.g. build) | ✅ Yes  |
-| `$`    | One-off commands (not tracked e.g. gui app)             | ❌ No   |
+| Symbol | Description                                 | Tracked |
+| ------ | ------------------------------------------- | ------- |
+| `@`    | Sustained (servers, terminal commands, etc) | ✅ Yes  |
+| `%`    | Tracked but auto-closing jobs (e.g. build)  | ✅ Yes  |
+| `$`    | One-off commands (not tracked e.g. gui app) | ❌ No   |
 
 ---
 
